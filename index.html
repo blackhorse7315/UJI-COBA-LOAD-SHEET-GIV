@@ -135,6 +135,23 @@
                 <ul id="admin-cabin-list" class="space-y-2 mt-4 text-sm max-h-48 overflow-y-auto pr-2"></ul>
             </div>
         </div>
+
+        <!-- NEW: CSV Import Section -->
+        <div class="bg-gray-800 p-6 rounded-lg mt-6 border border-gray-700">
+            <h2 class="text-lg font-semibold text-white mb-2">Import Data dari Google Sheets (CSV)</h2>
+            <p class="text-sm text-gray-400 mb-4">Export Google Sheet lama Anda ke format .csv (File > Download > CSV), lalu upload ke sini untuk memindahkannya ke Firebase.</p>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <input type="file" id="csv-file-input" accept=".csv" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-white hover:file:bg-gray-600 cursor-pointer">
+                <button id="import-csv-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg transition-colors whitespace-nowrap">Mulai Import</button>
+            </div>
+            <div id="import-progress-container" class="hidden mt-4">
+                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                  <div id="import-progress-bar" class="bg-indigo-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="import-status-msg" class="text-sm text-gray-400 mt-2 font-medium">Memproses...</p>
+            </div>
+        </div>
+
     </div>
 
     <div id="expired-page" class="hidden flex items-center justify-center min-h-screen text-center">
@@ -354,6 +371,22 @@
             <div class="flex justify-end gap-3 mt-6">
                 <button id="cancel-edit-flight-btn" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded">Cancel</button>
                 <button id="save-edit-flight-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Flight Detail Modal -->
+    <div id="flight-detail-modal" class="hidden fixed inset-0 bg-black/90 z-[70] flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="bg-gray-800 rounded-lg w-full max-w-3xl h-[85vh] flex flex-col shadow-2xl border border-gray-600">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900 rounded-t-lg">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-amber-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    Flight Details
+                </h2>
+                <button id="close-detail-btn" class="text-gray-400 hover:text-red-400 transition-colors text-3xl leading-none">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 text-sm text-gray-300 space-y-6" id="detail-modal-content">
+                <!-- Injected via JS -->
             </div>
         </div>
     </div>
@@ -643,6 +676,101 @@
         window.delEng = async (i) => { if(await showModal('Confirm', 'Delete engineer?', true)){ engineersData.splice(i,1); renderAdminLists(); await syncMasterDataToDB(); }};
         window.delCab = async (i) => { if(await showModal('Confirm', 'Delete cabin service?', true)){ cabinServicesData.splice(i,1); renderAdminLists(); await syncMasterDataToDB(); }};
 
+        // CSV Parser and Import Logic
+        function parseCSV(text) {
+            let p = '', row = [''], ret = [row], i = 0, r = 0, s = !0, l;
+            for (l of text) {
+                if ('"' === l) { if (s && l === p) row[i] += l; s = !s; }
+                else if (',' === l && s) l = row[++i] = '';
+                else if ('\n' === l && s) {
+                    if ('\r' === p) row[i] = row[i].slice(0, -1);
+                    row = ret[++r] = [l = '']; i = 0;
+                } else row[i] += l;
+                p = l;
+            }
+            return ret;
+        }
+
+        const csvHeaderMapping = {
+            "Timestamp": "timestamp", "Flight Date": "flightDate", "Route From": "routeFrom", "Route To": "routeTo",
+            "PIC": "picName", "Copilot": "copilotName", "Engineer": "engineerName", "Cabin Service": "cabinServiceName",
+            "Ramp Wt": "rampWeight", "Max TOW": "maxTakeoffWeight", "Empty Wt": "emptyWeight",
+            "Pilot Wt": "pilot", "Copilot Wt": "copilot", "Eng Wt": "engineer", "Cab Svc Wt": "cabinService",
+            "POB": "totalPob", "Baggage": "baggage", "Cockpit Storage": "cockpitStorage", "Cabin Storage": "cabinStorage",
+            "Trip Hrs": "tripTimeHours", "Trip Mins": "tripTimeMinutes", "Alt Hrs": "tripToAlternateHours", "Alt Mins": "tripToAlternateMinutes",
+            "Altitude": "altitude", "Airspeed": "airspeed", "Headwind": "headwind", "FOB": "fuelOnBoard",
+            "Galley": "galley", "Seat 1": "seat1", "Seat 2": "seat2", "Seat 3": "seat3", "Seat 4": "seat4",
+            "Seat 5": "seat5", "Seat 6": "seat6", "Seat 7": "seat7", "Seat 8": "seat8", "Seat 9": "seat9",
+            "Seat 10": "seat10", "Seat 11": "seat11", "Seat 12": "seat12", "Seat 13": "seat13", "Aft Lavatory": "aftLavatory",
+            "ZFW": "zfwResult", "ZFW MAC": "zfwMacResult", "TOW": "towResult", "TOW MAC": "towMacResult",
+            "LW": "landingWeightResult", "LW MAC": "landingWeightMacResult", "Fuel Req": "totalFuelRequired", "Trim": "elevatorTrimResult"
+        };
+
+        document.getElementById('import-csv-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('csv-file-input');
+            if (!fileInput.files.length) return await showModal('Error', 'Pilih file CSV terlebih dahulu.');
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = async (e) => {
+                const text = e.target.result;
+                const rows = parseCSV(text);
+                if (rows.length < 2) return await showModal('Error', 'File CSV kosong atau tidak valid.');
+                
+                const headers = rows[0].map(h => h.trim());
+                const dataToImport = [];
+                
+                for (let i = 1; i < rows.length; i++) {
+                    if (rows[i].length !== headers.length && rows[i].join('').trim() === '') continue; // Skip baris kosong
+                    
+                    const payload = {};
+                    headers.forEach((header, index) => {
+                        const firestoreKey = csvHeaderMapping[header] || header; // Map ke key firebase atau gunakan aslinya
+                        payload[firestoreKey] = rows[i][index] ? rows[i][index].trim() : '';
+                    });
+                    
+                    // Format tanggal agar seragam jika ada
+                    if (!payload.savedBy) payload.savedBy = 'admin_import';
+                    if (!payload.timestamp) payload.timestamp = new Date().toISOString();
+                    
+                    dataToImport.push(payload);
+                }
+                
+                if (dataToImport.length === 0) return await showModal('Error', 'Tidak ada baris data valid untuk diimport.');
+                
+                const confirmImport = await showModal('Konfirmasi Import', `Ditemukan ${dataToImport.length} baris data siap import. Proses ini akan menyimpannya ke database Firebase secara permanen. Lanjutkan?`, true);
+                if (!confirmImport) return;
+                
+                const progressContainer = document.getElementById('import-progress-container');
+                const progressBar = document.getElementById('import-progress-bar');
+                const statusMsg = document.getElementById('import-status-msg');
+                
+                progressContainer.classList.remove('hidden');
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (let i = 0; i < dataToImport.length; i++) {
+                    try {
+                        await addDoc(getFlightsColRef(), dataToImport[i]);
+                        successCount++;
+                    } catch (err) {
+                        console.error("Row import error", err);
+                        errorCount++;
+                    }
+                    const progress = Math.round(((i + 1) / dataToImport.length) * 100);
+                    progressBar.style.width = `${progress}%`;
+                    statusMsg.textContent = `Mengimport: ${i + 1} / ${dataToImport.length} (${successCount} sukses, ${errorCount} gagal)`;
+                }
+                
+                await showModal('Import Selesai', `Proses import CSV ke Firebase telah selesai!\nBerhasil: ${successCount}\nGagal: ${errorCount}`);
+                setTimeout(() => { progressContainer.classList.add('hidden'); progressBar.style.width = '0%'; }, 2000);
+                fileInput.value = '';
+            };
+            
+            reader.readAsText(file);
+        });
+
         document.getElementById('add-engineer-btn').addEventListener('click', async () => {
             const v = document.getElementById('new-engineer-name').value.trim();
             if(v) { engineersData.push(v); document.getElementById('new-engineer-name').value=''; renderAdminLists(); await syncMasterDataToDB(); updateAllDatalists(); }
@@ -892,6 +1020,7 @@
                                 <div><span class="text-gray-500">ZFW:</span> ${d.zfwResult||'0'} lbs</div>
                             </div>
                             <div class="flex gap-2 justify-end">
+                                <button class="px-2 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs" onclick="window.viewDetail('${item.id}')">Detail</button>
                                 <button class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs" onclick="window.loadDoc('${item.id}', false)">Load</button>
                                 <button class="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs" onclick="window.loadDoc('${item.id}', true)">Duplicate</button>
                                 <button class="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs" onclick="window.delDoc('${item.id}')">Delete</button>
@@ -939,6 +1068,91 @@
             } catch (err) { await showModal('Error', 'Failed to delete: ' + err.message); }
         };
 
+        window.viewDetail = (id) => {
+            const item = currentHistoryData.find(i => i.id === id);
+            if(!item) return;
+            const d = item.data;
+            const val = (v, unit='') => (v !== undefined && v !== '') ? `${v} ${unit}`.trim() : '-';
+
+            document.getElementById('detail-modal-content').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-900 p-4 rounded border border-gray-700">
+                        <h3 class="text-amber-400 font-bold border-b border-gray-700 pb-1 mb-2">Route & Info</h3>
+                        <div class="space-y-1">
+                            <p><span class="text-gray-500 inline-block w-20">Date:</span> ${val(d.flightDate)}</p>
+                            <p><span class="text-gray-500 inline-block w-20">Route:</span> ${val(d.routeFrom)} ➔ ${val(d.routeTo)}</p>
+                            <p><span class="text-gray-500 inline-block w-20">POB:</span> ${val(d.totalPob)}</p>
+                            <p><span class="text-gray-500 inline-block w-20">Saved By:</span> ${val(d.savedBy)}</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded border border-gray-700">
+                        <h3 class="text-amber-400 font-bold border-b border-gray-700 pb-1 mb-2">Crew</h3>
+                        <div class="space-y-1">
+                            <p><span class="text-gray-500 inline-block w-20">PIC:</span> ${val(d.picName)}</p>
+                            <p><span class="text-gray-500 inline-block w-20">Copilot:</span> ${val(d.copilotName)}</p>
+                            <p><span class="text-gray-500 inline-block w-20">Engineer:</span> ${val(d.engineerName)}</p>
+                            <p><span class="text-gray-500 inline-block w-20">Cabin Svc:</span> ${val(d.cabinServiceName)}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-900 p-4 rounded border border-gray-700">
+                    <h3 class="text-amber-400 font-bold border-b border-gray-700 pb-1 mb-2">Weights & Balances</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <p><span class="text-gray-500 block">Ramp Wt:</span> ${val(d.rampWeight, 'lbs')}</p>
+                        <p><span class="text-gray-500 block">Max TOW:</span> ${val(d.maxTakeoffWeight, 'lbs')}</p>
+                        <p><span class="text-gray-500 block">Empty Wt:</span> ${val(d.emptyWeight, 'lbs')}</p>
+                        <p><span class="text-gray-500 block">Trim Tab:</span> ${val(d.elevatorTrimResult)}</p>
+                        <p><span class="text-gray-500 block">ZFW:</span> ${val(d.zfwResult, 'lbs')} <br><span class="text-xs text-gray-400">(${val(d.zfwMacResult, '%MAC')})</span></p>
+                        <p><span class="text-gray-500 block">TOW:</span> ${val(d.towResult, 'lbs')} <br><span class="text-xs text-gray-400">(${val(d.towMacResult, '%MAC')})</span></p>
+                        <p><span class="text-gray-500 block">LW:</span> ${val(d.landingWeightResult, 'lbs')} <br><span class="text-xs text-gray-400">(${val(d.landingWeightMacResult, '%MAC')})</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 p-4 rounded border border-gray-700">
+                    <h3 class="text-amber-400 font-bold border-b border-gray-700 pb-1 mb-2">Flight & Fuel Details</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <p><span class="text-gray-500 block">Trip Time:</span> ${val(d.tripTimeHours, 'h')} ${val(d.tripTimeMinutes, 'm')}</p>
+                        <p><span class="text-gray-500 block">Alt Time:</span> ${val(d.tripToAlternateHours, 'h')} ${val(d.tripToAlternateMinutes, 'm')}</p>
+                        <p><span class="text-gray-500 block">Altitude:</span> ${val(d.altitude, 'ft')}</p>
+                        <p><span class="text-gray-500 block">Airspeed:</span> ${val(d.airspeed, 'kts')}</p>
+                        <p><span class="text-gray-500 block">FOB:</span> ${val(d.fuelOnBoard, 'lbs')}</p>
+                        <p><span class="text-gray-500 block">Fuel Cons:</span> ${val(d.fuelConsumption, 'lbs/hr')}</p>
+                        <p><span class="text-gray-500 block">Total Req:</span> <span class="text-amber-400 font-bold">${val(d.totalFuelRequired, 'lbs')}</span></p>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 p-4 rounded border border-gray-700">
+                    <h3 class="text-amber-400 font-bold border-b border-gray-700 pb-1 mb-2">Payload Details (kg)</h3>
+                    <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                        <p><span class="text-gray-500 block">Baggage:</span> ${val(d.baggage)}</p>
+                        <p><span class="text-gray-500 block">Ckpt Sto:</span> ${val(d.cockpitStorage)}</p>
+                        <p><span class="text-gray-500 block">Cab Sto:</span> ${val(d.cabinStorage)}</p>
+                        <p><span class="text-gray-500 block">Galley:</span> ${val(d.galley)}</p>
+                        <p><span class="text-gray-500 block">Aft Lav:</span> ${val(d.aftLavatory)}</p>
+                        <p><span class="text-gray-500 block">Seat 1:</span> ${val(d.seat1)}</p>
+                        <p><span class="text-gray-500 block">Seat 2:</span> ${val(d.seat2)}</p>
+                        <p><span class="text-gray-500 block">Seat 3:</span> ${val(d.seat3)}</p>
+                        <p><span class="text-gray-500 block">Seat 4:</span> ${val(d.seat4)}</p>
+                        <p><span class="text-gray-500 block">Seat 5:</span> ${val(d.seat5)}</p>
+                        <p><span class="text-gray-500 block">Seat 6:</span> ${val(d.seat6)}</p>
+                        <p><span class="text-gray-500 block">Seat 7:</span> ${val(d.seat7)}</p>
+                        <p><span class="text-gray-500 block">Seat 8:</span> ${val(d.seat8)}</p>
+                        <p><span class="text-gray-500 block">Seat 9:</span> ${val(d.seat9)}</p>
+                        <p><span class="text-gray-500 block">Seat 10:</span> ${val(d.seat10)}</p>
+                        <p><span class="text-gray-500 block">Seat 11:</span> ${val(d.seat11)}</p>
+                        <p><span class="text-gray-500 block">Seat 12:</span> ${val(d.seat12)}</p>
+                        <p><span class="text-gray-500 block">Seat 13:</span> ${val(d.seat13)}</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('flight-detail-modal').classList.remove('hidden');
+        };
+
+        document.getElementById('close-detail-btn').addEventListener('click', () => {
+            document.getElementById('flight-detail-modal').classList.add('hidden');
+        });
+
         document.getElementById('new-data-btn').addEventListener('click', async () => {
             const confirmed = await showModal('New Flight', 'Clear the form for a new flight?', true);
             if(!confirmed) return;
@@ -952,13 +1166,284 @@
         });
 
         // Basic PDF Generator placeholder attached dynamically to keep code dense
-        document.getElementById('downloadPdfBtn').addEventListener('click', () => {
-             const { jsPDF } = window.jspdf; const pdf = new jsPDF();
-             pdf.setFontSize(16); pdf.text('Weight & Balance Sheet', 105, 20, null, null, 'center');
-             pdf.setFontSize(12); pdf.text(`Route: ${inputs.routeFrom.value} to ${inputs.routeTo.value}`, 20, 40);
-             pdf.text(`TOW: ${outputs.towResult.textContent} lbs | ZFW: ${outputs.zfwResult.textContent} lbs`, 20, 50);
-             pdf.text(`Total Fuel Req: ${outputs.totalFuelRequired.textContent} lbs`, 20, 60);
-             pdf.save(`WnB_${inputs.routeFrom.value}_${inputs.routeTo.value}.pdf`);
+        document.getElementById('downloadPdfBtn').addEventListener('click', async () => {
+             const pdfMessage = document.getElementById('cloud-message');
+             pdfMessage.textContent = 'Generating PDF...';
+             pdfMessage.className = 'text-sm font-medium mt-2 text-amber-400';
+             pdfMessage.classList.remove('hidden');
+
+             try {
+                 const { jsPDF } = window.jspdf; 
+                 const doc = new jsPDF();
+                 const pageWidth = doc.internal.pageSize.getWidth();
+                 
+                 // Simple Base64 fetcher inline for the PDF
+                 const getBase64 = async (url) => {
+                    const response = await fetch(url);
+                    const blob = await response.blob();
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                 };
+
+                 // --- PAGE 1: Header & Basic Info ---
+                 try {
+                     const logoUrl = "https://lh3.googleusercontent.com/d/1WNcGjsZ9_Fp54xzOl01EYRqM6-wY5Zh7";
+                     const logoBase64 = await getBase64(logoUrl);
+                     doc.addImage(logoBase64, 'PNG', 97.5, 5, 15, 15);
+                 } catch (err) {
+                     console.warn("Could not load logo for PDF.", err);
+                 }
+
+                 doc.setFontSize(14); 
+                 doc.setFont(undefined, 'bold'); 
+                 doc.text('PT. TRANSWISATA PRIMA AVIATION', pageWidth / 2, 26, null, null, 'center'); 
+                 doc.setFontSize(16); 
+                 doc.text('Load Sheet Gulfstream IV SP SN1381', pageWidth / 2, 33, null, null, 'center'); 
+                 doc.setFontSize(11); 
+                 doc.setFont(undefined, 'normal'); 
+                 doc.text(`Aircraft Registration: PK-TWY`, pageWidth / 2, 39, null, null, 'center'); 
+                 
+                 let displayDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+                 if (inputs.flightDate.value) {
+                     displayDate = new Date(inputs.flightDate.value).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+                 }
+                 doc.setFontSize(10); 
+                 doc.text(`Date: ${displayDate}`, pageWidth / 2, 44, null, null, 'center'); 
+                 
+                 doc.setFont(undefined, 'bold');
+                 doc.text('Doc. No: F/TWA-OPS/002-01', 14, 50);
+                 doc.text('Effective Date: 01 October 2025', pageWidth - 14, 50, { align: 'right' });
+                 doc.setFont(undefined, 'normal');
+
+                 // Route Info Table
+                 doc.autoTable({ 
+                     startY: 53, 
+                     head: [['Route Information', '']], 
+                     body: [['From', inputs.routeFrom.value || '-'], ['Destination', inputs.routeTo.value || '-']], 
+                     theme: 'grid', 
+                     headStyles: { fillColor: [45, 55, 72] },
+                     styles: { cellPadding: 1.5 }
+                 }); 
+                 
+                 // Crew & POB Table
+                 doc.autoTable({ 
+                     startY: doc.lastAutoTable.finalY + 4, 
+                     head: [['Role', 'Name']], 
+                     body: [
+                         ['PIC', inputs.picName.value || '-'], 
+                         ['Copilot', inputs.copilotName.value || '-'], 
+                         ['Engineer', inputs.engineerName.value || '-'], 
+                         ['Cabin Service', inputs.cabinServiceName.value || '-'], 
+                         ['Total Person on Board (POB)', inputs.totalPob.value || '0']
+                     ], 
+                     theme: 'grid', 
+                     headStyles: { fillColor: [22, 163, 74] },
+                     styles: { cellPadding: 1.5 }
+                 });
+                 
+                 const tripTime = `${inputs.tripTimeHours.value || 0} hr ${inputs.tripTimeMinutes.value || 0} min`; 
+                 const alternateTime = `${inputs.tripToAlternateHours.value || 0} hr ${inputs.tripToAlternateMinutes.value || 0} min`; 
+                 
+                 // Flight Calc Table
+                 doc.autoTable({ 
+                     startY: doc.lastAutoTable.finalY + 4, 
+                     head: [['Flight Calculation', 'Value']], 
+                     body: [
+                         ['Trip Time', tripTime], 
+                         ['Trip to Alternate', alternateTime], 
+                         ['Altitude', `${inputs.altitude.value || 0} ft`], 
+                         ['Airspeed', `${inputs.airspeed.value || 0} kts`], 
+                         ['Headwind', `${inputs.headwind.value || 0} kts`], 
+                         ['Fuel on Board', `${inputs.fuelOnBoard.value || 0} lbs`], 
+                         ['Maximum Range', `${outputs.maxRange.textContent} nm`]
+                     ], 
+                     theme: 'grid', 
+                     headStyles: { fillColor: [45, 55, 72] },
+                     styles: { cellPadding: 1.5 }
+                 }); 
+                 
+                 // Fuel Required Table
+                 doc.autoTable({ 
+                     startY: doc.lastAutoTable.finalY + 4, 
+                     head: [['Fuel Required', 'Value']], 
+                     body: [
+                         ['Fuel Consumption', `${inputs.fuelConsumption.value} lbs/hr`], 
+                         ['Trip Fuel', `${outputs.fuelTripRequired.textContent} lbs`], 
+                         ['Alternate Fuel', `${outputs.alternateFuel.textContent} lbs`], 
+                         ['Final Reserve 30 min', `${outputs.reserveFuel.textContent} lbs`], 
+                         ['Contingency (10%)', `${outputs.contingencyFuel.textContent} lbs`], 
+                         ['Start & Taxi', `${outputs.startTaxiFuel.textContent} lbs`], 
+                         ['TOTAL FUEL REQUIRED', `${outputs.totalFuelRequired.textContent} lbs`]
+                     ], 
+                     theme: 'grid', 
+                     headStyles: { fillColor: [45, 55, 72] }, 
+                     styles: { cellPadding: 1.5 },
+                     bodyStyles: { fontStyle: 'bold' }, 
+                     didParseCell: function(data) { 
+                         if (data.row.index === 6) { 
+                             data.cell.styles.fillColor = '#1f2937'; 
+                             data.cell.styles.textColor = '#fcd34d'; 
+                         } 
+                     } 
+                 }); 
+
+                 // --- PAGE 2: Weight & CG Breakdown ---
+                 doc.addPage();
+                 let finalY = 10;
+                 
+                 // Scrape data from the visible HTML CG Table
+                 const tableBody = document.getElementById('cg-table-body'); 
+                 let cgBodyData = []; 
+                 tableBody.querySelectorAll('tr').forEach(row => { 
+                     let rowData = []; 
+                     row.querySelectorAll('td').forEach(cell => { 
+                         rowData.push(cell.innerText); 
+                     }); 
+                     if(rowData[1] !== "0.0") {
+                        cgBodyData.push([rowData[0], '', rowData[1], '', rowData[2], '', rowData[3], '', rowData[4]]); 
+                     }
+                 });
+                 
+                 doc.autoTable({ 
+                     startY: finalY + 8, 
+                     head: [['Item', '', 'Weight (lbs)', '', 'Arm (in)', '', 'Moment', '', '%MAC']], 
+                     body: cgBodyData, 
+                     theme: 'striped', 
+                     headStyles: { fillColor: [45, 55, 72] }, 
+                     styles: { fontSize: 8, cellPadding: 1.5 }, 
+                     columnStyles: { 
+                         0: { cellWidth: 50 }, 
+                         2: { halign: 'right' }, 
+                         4: { halign: 'right' }, 
+                         6: { halign: 'right' }, 
+                         8: { halign: 'right' }, 
+                     }, 
+                     didParseCell: function(data) { 
+                         const rowLabel = data.row.raw[0] || '';
+                         if (rowLabel.includes('BOW') || rowLabel.includes('Zero Fuel Weight') || rowLabel.includes('ZFW') || rowLabel.includes('Take Off Weight') || rowLabel.includes('TOW') || rowLabel.includes('Landing Weight') || rowLabel.includes('LW')) { 
+                             data.cell.styles.fillColor = '#1f2937'; 
+                             data.cell.styles.textColor = '#fcd34d'; 
+                             data.cell.styles.fontStyle = 'bold'; 
+                         } 
+                     } 
+                 }); 
+                 finalY = doc.lastAutoTable.finalY;
+
+                 doc.setFontSize(11);
+                 doc.setFont(undefined, 'bold');
+                 doc.text('Elevator Trim Tab Setting: ', 14, finalY + 8);
+                 doc.setFont(undefined, 'normal');
+                 doc.text(outputs.elevatorTrimResult.textContent, 65, finalY + 8);
+                 finalY += 14;
+
+                 // Summary Table - Syntactically corrected
+                 const summaryBody = [
+                     ['Total Payload', `${outputs.totalPayloadLbs.textContent} lbs / ${outputs.totalPayloadKg.textContent} kg`],
+                     ['Zero Fuel Weight (ZFW)', `${outputs.zfwResult.textContent} lbs / ${outputs.zfwMacResult.textContent} %MAC (${outputs.zfwStatus.textContent})`],
+                     ['Takeoff Weight (TOW)', `${outputs.towResult.textContent} lbs / ${outputs.towMacResult.textContent} %MAC (${outputs.towStatus.textContent})`],
+                     ['Landing Weight (LW)', `${outputs.landingWeightResult.textContent} lbs / ${outputs.landingWeightMacResult.textContent} %MAC (${outputs.landingWeightStatus.textContent})`],
+                     ['Extra Fuel', `${outputs.extraFuelResult.textContent} lbs`],
+                     ['Available Payload', `${outputs.availablePayloadLbs.textContent} lbs / ${outputs.availablePayloadKg.textContent} kg`]
+                 ];
+
+                 doc.autoTable({
+                     startY: finalY,
+                     head: [['Weight Summary', 'Value']],
+                     body: summaryBody,
+                     theme: 'grid',
+                     headStyles: { fillColor: [45, 55, 72] },
+                     styles: { cellPadding: 1.5 },
+                     didParseCell: function(data) {
+                         if (data.column.index === 1) { 
+                             const cellText = data.cell.text[0];
+                             if (data.row.index >= 1 && data.row.index <= 3) { 
+                                 if (cellText.includes('OK')) {
+                                     data.cell.styles.textColor = [0, 150, 0]; 
+                                 } else if (cellText.includes('OVERWEIGHT')) {
+                                     data.cell.styles.textColor = [255, 0, 0]; 
+                                 }
+                             }
+                             else if (data.row.index === 4 || data.row.index === 5) {  
+                                 const numericValue = parseFloat(cellText.split(' ')[0]); 
+                                 if (numericValue >= 0) {
+                                     data.cell.styles.textColor = [0, 150, 0]; 
+                                 } else {
+                                     data.cell.styles.textColor = [255, 0, 0]; 
+                                 }
+                             }
+                         }
+                     }
+                 });
+                 finalY = doc.lastAutoTable.finalY;
+
+                 // --- PAGE 3: CG Chart & Signatures ---
+                 doc.addPage();
+                 finalY = 20;
+                 
+                 const chartCanvas = document.getElementById('cgEnvelopeChart');
+                 if (chartCanvas) {
+                     const chartImage = chartCanvas.toDataURL('image/png', 1.0);
+                     // Set size to 145x145 as requested
+                     const chartWidth = 145; 
+                     const chartHeight = 145;
+                     const chartX = (pageWidth - chartWidth) / 2;
+                     
+                     doc.addImage(chartImage, 'PNG', chartX, finalY, chartWidth, chartHeight);
+                     finalY += chartHeight + 20; 
+                 }
+
+                 // Signature and Certification Text Layout
+                 const picName = inputs.picName.value || '_________________________';
+                 doc.setFontSize(10);
+                 doc.setFont(undefined, 'normal');
+
+                 // Signature (Left)
+                 const selectedPilot = pilotsData.find(p => p.name === picName);
+                 if (selectedPilot && selectedPilot.signatureUrl) {
+                     try {
+                         const imgData = await getBase64(selectedPilot.signatureUrl);
+                         doc.addImage(imgData, 'PNG', 16, finalY, 45, 25); 
+                     } catch (err) {
+                         console.warn("Gagal memuat tanda tangan.", err);
+                     }
+                 }
+
+                 // Draw line and text below the signature area
+                 doc.text(picName, 16, finalY + 30);
+                 doc.line(16, finalY + 32, 85, finalY + 32);
+                 doc.text('Pilot in Command Signature', 16, finalY + 37);
+
+                 // Certification Text (Right)
+                 doc.setTextColor(255, 0, 0); 
+                 const certificationText = "I Certify That I Have Satisfied My Self That All Factors From\nThe Basic Of Flight Preparation Laid Down By The Indonesia\nCivil Aviation As Covered In The Operation Manual of\nPT.Transwisata Prima Aviation";
+                 doc.setFontSize(9);
+                 // Placing text on the right side, aligned with signature
+                 doc.text(certificationText, pageWidth - 100, finalY + 12);
+                 doc.setTextColor(0, 0, 0); 
+
+                 // Add page numbers
+                 const pageCount = doc.internal.getNumberOfPages();
+                 for (let i = 1; i <= pageCount; i++) {
+                     doc.setPage(i);
+                     doc.setFontSize(10);
+                     doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+                 }
+
+                 doc.save(`G-IV_SP_SN1381_PK-TWY_Weight_Balance_${inputs.routeFrom.value || 'DEP'}_to_${inputs.routeTo.value || 'ARR'}.pdf`);
+                 
+                 pdfMessage.textContent = 'PDF Downloaded Successfully!';
+                 pdfMessage.classList.replace('text-amber-400', 'text-green-400');
+                 setTimeout(()=>pdfMessage.classList.add('hidden'), 3000);
+
+             } catch (pdfErr) {
+                 console.error("PDF Generation Error", pdfErr);
+                 pdfMessage.textContent = 'PDF generation failed.';
+                 pdfMessage.classList.replace('text-amber-400', 'text-red-500');
+             }
         });
 
         // Initialize App
