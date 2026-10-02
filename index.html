@@ -776,15 +776,64 @@
         
         function initializeCgEnvelope() {
             const ctx = document.getElementById('cgEnvelopeChart').getContext('2d');
+            const envelopeData = [
+                {x: 38, y: 39400}, {x: 36.4, y: 45000}, {x: 36.4, y: 46500},
+                {x: 41.3, y: 46500}, {x: 45, y: 44000}, {x: 45, y: 38000},
+                {x: 42, y: 38000}, {x: 38, y: 39400}
+            ];
+            
             cgChart = new Chart(ctx, {
-                type: 'line', data: {
+                type: 'line', 
+                data: {
                     datasets: [
-                        { label: 'Env', data: [{x:38,y:39400},{x:36.4,y:45000},{x:36.4,y:46500},{x:41.3,y:46500},{x:45,y:44000},{x:45,y:38000},{x:42,y:38000},{x:38,y:39400}], borderColor:'#fcd34d', backgroundColor:'rgba(252,211,77,0.2)', fill:true, order:10, pointRadius:0 },
-                        { label: 'ZFW', data:[], backgroundColor:'#34d399', type:'scatter', pointRadius:5 },
-                        { label: 'TOW', data:[], backgroundColor:'#60a5fa', type:'scatter', pointRadius:5 },
-                        { label: 'LW', data:[], backgroundColor:'#f87171', type:'scatter', pointRadius:5 }
+                        { 
+                            label: 'CG Envelope', 
+                            data: envelopeData, 
+                            borderColor: '#fcd34d', 
+                            backgroundColor: 'transparent', 
+                            fill: false, 
+                            borderWidth: 2, 
+                            order: 10, 
+                            pointRadius: 0 
+                        },
+                        { label: 'ZFW', data: [], backgroundColor: '#34d399', type: 'scatter', pointRadius: 6, pointHoverRadius: 8, order: 0 },
+                        { label: 'TOW', data: [], backgroundColor: '#60a5fa', type: 'scatter', pointRadius: 6, pointHoverRadius: 8, order: 0 },
+                        { label: 'LW', data: [], backgroundColor: '#f87171', type: 'scatter', pointRadius: 6, pointHoverRadius: 8, order: 0 }
                     ]
-                }, options: { responsive:true, aspectRatio:1.2, scales: { x:{min:34, max:48, title:{display:true, text:'% MAC'}}, y:{min:36000, max:76000, title:{display:true, text:'WEIGHT LBS'}} } }
+                }, 
+                options: { 
+                    responsive: true, 
+                    aspectRatio: 1, 
+                    scales: { 
+                        x: { 
+                            type: 'linear', 
+                            position: 'bottom',
+                            min: 25, 
+                            max: 51, 
+                            title: { display: true, text: '% MAC', color: '#9ca3af' },
+                            ticks: { color: '#9ca3af', stepSize: 2 },
+                            grid: { color: 'rgba(156, 163, 175, 0.2)' }
+                        }, 
+                        y: { 
+                            min: 36000, 
+                            max: 76000, 
+                            title: { display: true, text: 'GROSS WEIGHT - LBS', color: '#9ca3af' },
+                            ticks: { color: '#9ca3af', stepSize: 3000 },
+                            grid: { color: 'rgba(156, 163, 175, 0.2)' }
+                        } 
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#d1d5db' } },
+                        annotation: {
+                            annotations: {
+                                maxRamp: { type: 'line', yMin: 75000, yMax: 75000, borderColor: 'rgb(239, 68, 68, 0.7)', borderWidth: 2 },
+                                maxTakeoff: { type: 'line', yMin: 74600, yMax: 74600, borderColor: 'rgb(249, 115, 22, 0.7)', borderWidth: 2 },
+                                maxLanding: { type: 'line', yMin: 66000, yMax: 66000, borderColor: 'rgb(59, 130, 246, 0.7)', borderWidth: 2 },
+                                aftForwardLoading: { type: 'line', xMin: 36.4, xMax: 43.5, yMin: 45000, yMax: 45000, borderColor: 'rgb(16, 185, 129, 0.7)', borderWidth: 2, borderDash: [5, 5] }
+                            }
+                        }
+                    }
+                }
             });
         }
 
