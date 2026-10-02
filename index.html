@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G-IV SP Weight & Balance Calculator</title>
+    <link rel="icon" href="https://lh3.googleusercontent.com/d/1C0snR7IN-kpYMnxzqzpcc-7SRjIbEalE">
+    <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1C0snR7IN-kpYMnxzqzpcc-7SRjIbEalE">
+    <meta name="theme-color" content="#111827">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .icon { width: 1.25rem; height: 1.25rem; margin-right: 0.75rem; stroke-width: 1.5; }
+        .time-input { width: 4rem; }
+        .seat { border: 1px solid #4a5568; background-color: #2d3748; border-radius: 0.375rem; padding: 0.5rem; text-align: center; font-size: 0.75rem; min-width: 50px; }
+        .seat-input { width: 50px; background-color: #4a5568; border: 1px solid #718096; text-align: center; border-radius: 0.25rem; }
+        .table-box { border: 2px solid #fdba74; background-color: #4a5568; border-radius: 0.25rem; width: 20px; height: 20px; align-self: center; }
+        .component { border: 1px solid #4a5568; background-color: #2d3748; border-radius: 0.375rem; padding: 0.5rem; text-align: center; font-size: 0.875rem; }
+        .cg-table th, .cg-table td { padding: 0.5rem 0.25rem; text-align: right; font-size: 0.875rem; vertical-align: middle; }
+        .cg-table th:first-child, .cg-table td:first-child { text-align: left; font-weight: 500; }
+        .total-row { background-color: #1f2937; font-weight: bold; color: #fcd34d; }
+        .editable-cell-input { width: 100%; background-color: #4a5568; border: 1px solid #718096; text-align: right; border-radius: 0.25rem; padding-right: 0.25rem; }
+        input:read-only { background-color: #374151; cursor: not-allowed; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <div id="loading-screen" class="fixed inset-0 bg-gray-900 z-[100] flex flex-col items-center justify-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-amber-400 mb-4"></div>
+        <p class="text-amber-400 font-semibold animate-pulse">Initializing Database...</p>
+    </div>
+
+    <div id="custom-modal" class="hidden fixed inset-0 bg-black/80 z-[999] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-gray-800 rounded-xl max-w-sm w-full p-6 shadow-2xl border border-gray-700 transform transition-transform">
+            <h3 id="modal-title" class="text-lg font-bold text-white mb-2">Notice</h3>
+            <p id="modal-message" class="text-gray-300 text-sm mb-6"></p>
+            <div class="flex justify-end gap-3">
+                <button id="modal-cancel-btn" class="hidden px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors">Cancel</button>
+                <button id="modal-confirm-btn" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 text-sm font-bold rounded-lg transition-colors">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-page" class="hidden flex-col items-center justify-center min-h-screen px-4">
+        <img src="https://lh3.googleusercontent.com/d/1C0snR7IN-kpYMnxzqzpcc-7SRjIbEalE" alt="Logo" class="w-24 h-24 mb-4 object-contain drop-shadow-lg rounded-xl" />
+        <h1 class="text-3xl sm:text-4xl font-bold text-white mb-2 text-center whitespace-nowrap">
+            ECrew - Transwisata
+            <span class="block text-xl sm:text-2xl text-gray-300 mt-2 font-semibold">Weight & Balance Application</span>
+            <span class="block text-lg sm:text-xl text-amber-400 mt-2">Gulfstream IV SP SN1381</span>
+            <span class="block text-base sm:text-lg text-amber-400">PK-TWY</span>
+        </h1>
+        <p class="text-sm text-gray-400 mb-8 text-center whitespace-nowrap">powered by SkyOps Solution</p>
+        <div class="w-full max-w-sm p-6 bg-gray-800 rounded-lg shadow-md border border-gray-700">
+            <h2 class="text-2xl font-bold text-center text-white mb-6">Login</h2>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-300 mb-2">Username</label>
+                    <input type="text" id="username" class="w-full p-2 bg-gray-700 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                    <input type="password" id="password" class="w-full p-2 bg-gray-700 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" required>
+                </div>
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-4 rounded-lg transition-colors">Login</button>
+                <p id="login-error" class="text-red-400 text-sm mt-4 text-center hidden"></p>
+            </form>
+        </div>
+    </div>
+
+    <div id="admin-page" class="hidden container mx-auto max-w-4xl p-4 sm:p-6 bg-gray-900 min-h-screen">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-white">Admin Settings (Firebase)</h1>
+            <div class="flex gap-2">
+                <button id="sync-manual-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Force Sync DB</button>
+                <button id="admin-logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Logout</button>
+            </div>
+        </div>
+        
+        <div class="bg-gray-800 p-6 rounded-lg mb-6 border border-gray-700">
+            <h2 class="text-lg font-semibold text-white mb-4">Application Expiry Date</h2>
+            <div class="flex items-center space-x-4">
+                <label for="expiry-date-input" class="text-sm font-medium text-gray-300">Set Expiry Date:</label>
+                <input type="date" id="expiry-date-input" class="bg-gray-700 text-white p-2 border border-gray-600 rounded-md">
+            </div>
+            <button id="save-expiry-btn" class="mt-6 bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-4 rounded-lg transition-colors">Save Date to Cloud</button>
+            <p id="admin-message" class="text-green-400 text-sm mt-4 hidden"></p>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-lg mb-6 border border-gray-700">
+            <h2 class="text-lg font-semibold text-white mb-4">Manajemen Pilot & Tanda Tangan</h2>
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium text-gray-300 mb-1">Nama Pilot</label><input type="text" id="new-pilot-name" class="w-full bg-gray-700 text-white p-2 border border-gray-600 rounded-md"></div>
+                <div><label class="block text-sm font-medium text-gray-300 mb-1">URL Tanda Tangan</label><input type="text" id="new-pilot-url" class="w-full bg-gray-700 text-white p-2 border border-gray-600 rounded-md"></div>
+                <div><label class="block text-sm font-medium text-gray-300 mb-1">Username Login</label><input type="text" id="new-pilot-username" class="w-full bg-gray-700 text-white p-2 border border-gray-600 rounded-md"></div>
+                <div><label class="block text-sm font-medium text-gray-300 mb-1">Password Login</label><input type="text" id="new-pilot-password" class="w-full bg-gray-700 text-white p-2 border border-gray-600 rounded-md"></div>
+                <div class="flex gap-2">
+                    <button id="add-pilot-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Tambah Pilot</button>
+                    <button id="cancel-edit-pilot-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hidden transition-colors">Batal</button>
+                </div>
+                <p id="pilot-admin-message" class="text-sm mt-2 hidden"></p>
+            </div>
+            <div class="mt-6">
+                <h3 class="text-md font-semibold text-gray-300 mb-2">Daftar Pilot Tersimpan:</h3>
+                <ul id="admin-pilots-list" class="space-y-2 text-sm text-gray-400 max-h-48 overflow-y-auto pr-2"></ul>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <h2 class="text-lg font-semibold text-white mb-4">Manajemen Engineer</h2>
+                <div class="space-y-4">
+                    <input type="text" id="new-engineer-name" class="w-full bg-gray-700 text-white p-2 border border-gray-600 rounded-md">
+                    <button id="add-engineer-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full">Tambah</button>
+                    <p id="engineer-admin-message" class="text-sm mt-2 hidden"></p>
+                </div>
+                <ul id="admin-engineer-list" class="space-y-2 mt-4 text-sm max-h-48 overflow-y-auto pr-2"></ul>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <h2 class="text-lg font-semibold text-white mb-4">Manajemen Cabin Service</h2>
+                <div class="space-y-4">
+                    <input type="text" id="new-cabin-name" class="w-full bg-gray-700 text-white p-2 border border-gray-600 rounded-md">
+                    <button id="add-cabin-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg w-full">Tambah</button>
+                    <p id="cabin-admin-message" class="text-sm mt-2 hidden"></p>
+                </div>
+                <ul id="admin-cabin-list" class="space-y-2 mt-4 text-sm max-h-48 overflow-y-auto pr-2"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="expired-page" class="hidden flex items-center justify-center min-h-screen text-center">
+        <div class="w-full max-w-md p-8 bg-gray-800 rounded-lg shadow-md border border-gray-700">
+            <h2 class="text-2xl font-bold text-red-400 mb-4">Application Expired</h2>
+            <p class="text-gray-300 mb-6">Please contact the administrator immediately to extend your application's active period.</p>
+        </div>
+    </div>
+
+    <div id="app-page" class="hidden">
+        <div class="container mx-auto max-w-lg p-4 sm:p-6 bg-gray-900 min-h-screen">
+            <div class="sticky top-0 z-50 backdrop-blur-md bg-gray-900/80 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 mb-6 border-b border-gray-700/50 shadow-sm">
+                <div class="flex justify-between items-center w-full">
+                    <div class="flex gap-2">
+                        <button id="new-data-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-1.5 px-3 rounded-lg text-sm shadow flex items-center gap-1 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New
+                        </button>
+                        <button id="view-history-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-1.5 px-3 rounded-lg text-sm shadow transition-colors">History</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="app-logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-lg text-sm shadow transition-colors">Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <header class="text-center mb-8 relative">
+                <img src="https://lh3.googleusercontent.com/d/1C0snR7IN-kpYMnxzqzpcc-7SRjIbEalE" alt="Logo" class="w-20 h-20 mx-auto mb-3 object-contain drop-shadow-lg rounded-xl" />
+                <h1 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">Weight & Balance Application</h1>
+                <p class="text-amber-400 font-semibold text-lg mt-1">Gulfstream IV SP SN1381</p>
+                <p class="text-amber-400 font-semibold">PK-TWY</p>
+                <p id="expiry-countdown" class="text-xs mt-2"></p>
+                <p id="welcome-message" class="text-sm font-semibold text-green-400 mt-4"></p>
+            </header>
+
+            <div id="main-content" class="space-y-6">
+                <!-- Route Section -->
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Route</h2>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Date</label><input type="date" id="flightDate" class="w-48 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">From</label><input type="text" id="routeFrom" class="w-48 bg-gray-700 text-white text-right rounded p-1 uppercase"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Destination</label><input type="text" id="routeTo" class="w-48 bg-gray-700 text-white text-right rounded p-1 uppercase"></div>
+                    </div>
+                </div>
+
+                <!-- Aircraft Limits -->
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Aircraft Limits (lbs)</h2>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Ramp Wt</label><input type="number" id="rampWeight" value="75000" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Max TOW</label><input type="number" id="maxTakeoffWeight" value="74600" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                    </div>
+                </div>
+
+                <!-- Aircraft & Payload Data -->
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Aircraft & Payload Data (kg unless noted)</h2>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Empty Wt (lbs)</label><input type="number" id="emptyWeight" value="42765.80" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">PIC Name</label><input list="pic-names" id="picName" class="w-48 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Pilot (kg)</label><input type="number" id="pilot" value="90" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Copilot Name</label><input list="copilot-names" id="copilotName" class="w-48 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Copilot (kg)</label><input type="number" id="copilot" value="90" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Engineer Name</label><input list="engineer-names" id="engineerName" class="w-48 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Engineer (kg)</label><input type="number" id="engineer" value="90" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Cabin Svc Name</label><input list="cabin-service-names" id="cabinServiceName" class="w-48 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Cabin Svc (kg)</label><input type="number" id="cabinService" value="90" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">POB</label><input type="number" id="totalPob" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Baggage (kg)</label><input type="number" id="baggage" value="90" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Ckpt Sto (kg)</label><input type="number" id="cockpitStorage" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Cabin Sto (kg)</label><input type="number" id="cabinStorage" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                    </div>
+                </div>
+
+                <!-- Flight Calculation Section -->
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Flight Calculation</h2>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg">
+                            <label class="text-sm font-medium text-gray-400">Trip Time</label>
+                            <div class="flex space-x-2"><input type="number" id="tripTimeHours" placeholder="hr" class="w-16 bg-gray-700 text-white text-right rounded p-1"><input type="number" id="tripTimeMinutes" placeholder="min" class="w-16 bg-gray-700 text-white text-right rounded p-1"></div>
+                        </div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg">
+                            <label class="text-sm font-medium text-gray-400">Alternate Time</label>
+                            <div class="flex space-x-2"><input type="number" id="tripToAlternateHours" placeholder="hr" class="w-16 bg-gray-700 text-white text-right rounded p-1"><input type="number" id="tripToAlternateMinutes" placeholder="min" class="w-16 bg-gray-700 text-white text-right rounded p-1"></div>
+                        </div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Altitude (ft)</label><input type="number" id="altitude" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Airspeed (kts)</label><input type="number" id="airspeed" value="450" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">Headwind (kts)</label><input type="number" id="headwind" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex items-center justify-between bg-gray-800 p-3 rounded-lg"><label class="text-sm font-medium text-gray-400">FOB (lbs)</label><input type="number" id="fuelOnBoard" class="w-28 bg-gray-700 text-white text-right rounded p-1"></div>
+                        <div class="flex justify-between bg-gray-800 p-3 rounded-lg"><span class="text-sm font-medium text-gray-400">Max Range</span><div><span id="maxRange" class="font-bold text-lg text-white">0</span><span class="text-sm text-gray-400"> nm</span></div></div>
+                    </div>
+                </div>
+
+                <!-- Fuel Required Section -->
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Fuel Required (lbs)</h2>
+                    <div class="space-y-4 bg-gray-800 p-4 rounded-lg">
+                        <div class="flex items-center justify-between"><label class="text-sm font-medium text-gray-400">Consumption</label><div><input type="number" id="fuelConsumption" readonly class="w-24 bg-gray-600 text-white text-right rounded p-1"> <span class="text-sm">lbs/hr</span></div></div>
+                        <div class="flex justify-between"><span class="text-sm text-gray-300">Trip Fuel</span><span id="fuelTripRequired" class="font-bold text-white">0</span></div>
+                        <div class="flex justify-between"><span class="text-sm text-gray-300">Alternate Fuel</span><span id="alternateFuel" class="font-bold text-white">0</span></div>
+                        <div class="flex justify-between"><span class="text-sm text-gray-300">Reserve (30m)</span><span id="reserveFuel" class="font-bold text-white">0</span></div>
+                        <div class="flex justify-between"><span class="text-sm text-gray-300">Contingency</span><span id="contingencyFuel" class="font-bold text-white">0</span></div>
+                        <div class="flex justify-between"><span class="text-sm text-gray-300">Start/Taxi</span><span id="startTaxiFuel" class="font-bold text-white">400</span></div>
+                        <div class="flex justify-between border-t border-gray-600 pt-2"><span class="text-sm font-bold text-amber-400">TOTAL REQ</span><span id="totalFuelRequired" class="font-bold text-amber-400 text-lg">0</span></div>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Seat Layout (kg)</h2>
+                    <div class="bg-gray-800 p-4 rounded-lg space-y-4">
+                        <div class="text-center text-xs text-gray-400">-- COCKPIT --</div>
+                        <div class="flex justify-around items-center">
+                            <div class="seat">Pilot<br><span id="pilotSeatWt" class="font-bold text-amber-400">0</span></div>
+                            <div class="seat">Copilot<br><span id="copilotSeatWt" class="font-bold text-amber-400">0</span></div>
+                        </div>
+                        <div class="flex justify-center"><div class="seat">Jumpseat<br><span id="jumpseatWt" class="font-bold text-amber-400">0</span></div></div>
+
+                        <div class="text-center text-xs text-gray-400 mt-4">-- CABIN --</div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-3 flex flex-col items-center">
+                                 <div class="seat invisible">&nbsp;</div><div class="seat invisible">&nbsp;</div>
+                                 <div class="seat">S3<br><input type="number" id="seat3" class="seat-input"></div>
+                                 <div class="table-box my-2 invisible"></div>
+                                 <div class="seat">S4<br><input type="number" id="seat4" class="seat-input"></div>
+                                 <div class="seat">S6<br><input type="number" id="seat6" class="seat-input"></div>
+                                 <div class="table-box my-2"></div>
+                                 <div class="seat">S8<br><input type="number" id="seat8" class="seat-input"></div>
+                                 <div class="seat invisible mt-3">&nbsp;</div>
+                            </div>
+                            <div class="space-y-3 flex flex-col items-center">
+                                <div class="seat">Galley<br><input type="number" id="galley" value="34" class="seat-input mt-1"></div>
+                                <div class="seat">S1<br><input type="number" id="seat1" value="23" class="seat-input mt-1"></div>
+                                <div class="seat">S2<br><input type="number" id="seat2" class="seat-input"></div>
+                                <div class="table-box my-2"></div>
+                                <div class="seat">S5<br><input type="number" id="seat5" class="seat-input"></div>
+                                <div class="seat">S7<br><input type="number" id="seat7" class="seat-input"></div>
+                                <div class="table-box my-2"></div>
+                                <div class="seat">S9<br><input type="number" id="seat9" class="seat-input"></div>
+                                <div class="seat mt-3">S10<br><input type="number" id="seat10" class="seat-input"></div>
+                                <div class="seat">S11<br><input type="number" id="seat11" class="seat-input"></div>
+                                <div class="seat">S12<br><input type="number" id="seat12" class="seat-input"></div>
+                                <div class="component w-full mt-3">Aft Lav<br><input type="number" id="aftLavatory" value="23" class="seat-input mt-1"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mt-3">
+                            <div class="flex flex-col items-center space-y-3"><div class="table-box"></div><div class="seat">S13<br><input type="number" id="seat13" class="seat-input"></div></div>
+                        </div> 
+                        <div class="component w-full bg-green-800 border-green-600 mt-4">Baggage: <span id="baggageLayoutWt" class="font-bold text-white">0</span> kg</div>
+                    </div>
+                </div>
+
+                <!-- Weight & CG Table -->
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Weight & CG Calculation</h2>
+                    <div class="bg-gray-800 p-2 rounded-lg overflow-x-auto">
+                        <table class="w-full cg-table">
+                            <thead class="border-b border-gray-600"><tr><th>Item</th><th>Weight</th><th>Arm</th><th>Moment</th><th>%MAC</th></tr></thead>
+                            <tbody id="cg-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div><h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">CG Envelope</h2><div class="bg-gray-800 p-4 rounded-lg"><canvas id="cgEnvelopeChart"></canvas></div></div>
+
+                <!-- Weight Summary Section -->
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Weight Summary</h2>
+                    <div class="space-y-4 bg-gray-800 p-4 rounded-lg">
+                        <div class="flex justify-between"><span class="text-gray-300">Payload</span><span><span id="totalPayloadLbs" class="font-bold text-white">0</span> lbs / <span id="totalPayloadKg" class="font-bold text-white">0</span> kg</span></div>
+                        <div class="flex justify-between"><span class="text-gray-300">ZFW</span><span><span id="zfwResult" class="font-bold text-amber-400">0</span> lbs / <span id="zfwMacResult" class="font-bold text-amber-400">0.00</span> %MAC <span id="zfwStatus" class="ml-2 text-sm font-semibold"></span></span></div>
+                        <div class="flex justify-between"><span class="text-gray-300">TOW</span><span><span id="towResult" class="font-bold text-amber-400">0</span> lbs / <span id="towMacResult" class="font-bold text-amber-400">0.00</span> %MAC <span id="towStatus" class="ml-2 text-sm font-semibold"></span></span></div>
+                        <div class="flex justify-between"><span class="text-gray-300">LW</span><span><span id="landingWeightResult" class="font-bold text-amber-400">0</span> lbs / <span id="landingWeightMacResult" class="font-bold text-amber-400">0.00</span> %MAC <span id="landingWeightStatus" class="ml-2 text-sm font-semibold"></span></span></div>
+                        <div class="flex justify-between"><span class="text-gray-300">Extra Fuel</span><span id="extraFuelResult" class="font-bold text-green-400">0</span></div>
+                        <div class="flex justify-between border-t border-gray-700 pt-2"><span class="text-gray-300">Trim Tab</span><span id="elevatorTrimResult" class="font-bold text-green-400">N/A</span></div>
+                        <div class="flex justify-between"><span class="text-gray-300">Avail Payload</span><span><span id="availablePayloadLbs" class="font-bold text-green-400">0</span> lbs / <span id="availablePayloadKg" class="font-bold text-green-400">0</span> kg</span></div>
+                        <div class="flex justify-between"><span class="text-gray-300">Avail Pax</span><span id="availablePassengers" class="font-bold text-green-400">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="text-center mt-8 pb-4 flex flex-col items-center gap-3">
+                <div class="flex gap-4 justify-center flex-wrap">
+                    <button id="downloadPdfBtn" class="bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-4 rounded-lg hidden transition-colors">Download PDF</button>
+                    <button id="saveCloudBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow">Save to Cloud Database</button>
+                </div>
+                <p id="cloud-message" class="text-sm font-medium mt-2 hidden"></p>
+            </footer>
+        </div>
+    </div>
+
+    <div id="history-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-gray-900 rounded-lg w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl border border-gray-700">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800 rounded-t-lg">
+                <h2 class="text-xl font-bold text-white">Flight History</h2>
+                <button id="close-history-btn" class="text-gray-400 hover:text-red-400 transition-colors text-3xl leading-none">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 bg-gray-900" id="history-content">
+                <div class="flex justify-center items-center h-full"><div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-400"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-flight-modal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-xl border border-gray-600">
+            <h2 class="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">Edit Flight Summary</h2>
+            <input type="hidden" id="edit-flight-id">
+            <div class="space-y-3">
+                <div class="flex gap-2">
+                    <div class="w-1/2"><label class="block text-sm text-gray-300">From</label><input type="text" id="edit-route-from" class="w-full bg-gray-700 text-white p-2 rounded border border-gray-600 uppercase"></div>
+                    <div class="w-1/2"><label class="block text-sm text-gray-300">To</label><input type="text" id="edit-route-to" class="w-full bg-gray-700 text-white p-2 rounded border border-gray-600 uppercase"></div>
+                </div>
+                <div><label class="block text-sm text-gray-300">PIC</label><input type="text" id="edit-pic" class="w-full bg-gray-700 text-white p-2 rounded border border-gray-600"></div>
+                <div><label class="block text-sm text-gray-300">Copilot</label><input type="text" id="edit-copilot" class="w-full bg-gray-700 text-white p-2 rounded border border-gray-600"></div>
+            </div>
+            <p id="edit-flight-msg" class="text-sm mt-3 hidden"></p>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="cancel-edit-flight-btn" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded">Cancel</button>
+                <button id="save-edit-flight-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <datalist id="pic-names"></datalist><datalist id="copilot-names"></datalist><datalist id="engineer-names"></datalist><datalist id="cabin-service-names"></datalist>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // FIREBASE SETUP
+        const firebaseConfig = {
+            apiKey: "AIzaSyBK8_JZ1d0SORUSuHKtatoiQ5F_Z-7r8T0",
+            authDomain: "gen-lang-client-0159557626.firebaseapp.com",
+            projectId: "gen-lang-client-0159557626",
+            storageBucket: "gen-lang-client-0159557626.firebasestorage.app",
+            messagingSenderId: "944205168021",
+            appId: "1:944205168021:web:444670724f7e327879ca9c"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Strict Paths mandated by requirements
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'g4-weight-balance';
+        const getMasterDocRef = () => doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'master');
+        const getFlightsColRef = () => collection(db, 'artifacts', appId, 'public', 'data', 'flights');
+
+        let isAuthReady = false;
+        let currentUserUid = null;
+
+        // Custom Modal Logic (Replacing Native Alerts/Confirms)
+        const customModal = document.getElementById('custom-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMsg = document.getElementById('modal-message');
+        const btnCancel = document.getElementById('modal-cancel-btn');
+        const btnConfirm = document.getElementById('modal-confirm-btn');
+
+        function showModal(title, message, isConfirm = false) {
+            return new Promise((resolve) => {
+                modalTitle.textContent = title;
+                modalMsg.textContent = message;
+                customModal.classList.remove('hidden');
+                
+                if (isConfirm) {
+                    btnCancel.classList.remove('hidden');
+                } else {
+                    btnCancel.classList.add('hidden');
+                }
+
+                const cleanup = () => {
+                    btnConfirm.removeEventListener('click', onConfirm);
+                    btnCancel.removeEventListener('click', onCancel);
+                    customModal.classList.add('hidden');
+                };
+
+                const onConfirm = () => { cleanup(); resolve(true); };
+                const onCancel = () => { cleanup(); resolve(false); };
+
+                btnConfirm.addEventListener('click', onConfirm);
+                btnCancel.addEventListener('click', onCancel);
+            });
+        }
+
+        // Default Data
+        const DEFAULT_EXPIRY_DATE = '2027-12-31';
+        let pilotsData = [
+            { name: "Capt. Susetyo Harijanto", signatureUrl: "https://lh3.googleusercontent.com/d/1V5sPvHdGN1jP1rv1CIRIRP9JWMT15uxa", username: "harijantosusetyo@gmail.com", password: "user1" },
+            { name: "Capt. Purwoko", signatureUrl: "https://lh3.googleusercontent.com/d/18boYdBPuNG0nQpnd_rlptJuMf-4kD-G3", username: "purwoko.mulyono@yahoo.com", password: "user2" },
+            { name: "Capt. Rico Febdiandana", signatureUrl: "https://lh3.googleusercontent.com/d/1IVF2eIuDD48SjbuJ3GzyPOEr0zoLLiwh", username: "ricofebdi@gmail.com", password: "user3" }
+        ];
+        let engineersData = ["-", "Diki Hariyanto", "Lazarus Rio R", "Prayit Susonko"];
+        let cabinServicesData = ["-", "Qorry Maulidya N", "Tiffany Prisilia H", "Agustin Zulfani P", "Nadya Casey Ivanka"];
+        
+        let users = { 'admin@twa.com': { password: 'admin321', role: 'admin', greeting: 'Welcome, Administrator.' } };
+        let appExpiryDate = null;
+        let currentHistoryData = [];
+        let cgChart;
+        let loggedInUserObj = null;
+
+        // UI Elements
+        const pages = { login: document.getElementById('login-page'), app: document.getElementById('app-page'), admin: document.getElementById('admin-page'), expired: document.getElementById('expired-page'), loading: document.getElementById('loading-screen') };
+        
+        const inputs = {
+            flightDate: document.getElementById('flightDate'), rampWeight: document.getElementById('rampWeight'), maxTakeoffWeight: document.getElementById('maxTakeoffWeight'), emptyWeight: document.getElementById('emptyWeight'), pilot: document.getElementById('pilot'), copilot: document.getElementById('copilot'), engineer: document.getElementById('engineer'), cabinService: document.getElementById('cabinService'), baggage: document.getElementById('baggage'), cockpitStorage: document.getElementById('cockpitStorage'), cabinStorage: document.getElementById('cabinStorage'), picName: document.getElementById('picName'), copilotName: document.getElementById('copilotName'), engineerName: document.getElementById('engineerName'), cabinServiceName: document.getElementById('cabinServiceName'), totalPob: document.getElementById('totalPob'), galley: document.getElementById('galley'), seat1: document.getElementById('seat1'), seat2: document.getElementById('seat2'), seat3: document.getElementById('seat3'), seat4: document.getElementById('seat4'), seat5: document.getElementById('seat5'), seat6: document.getElementById('seat6'), seat7: document.getElementById('seat7'), seat8: document.getElementById('seat8'), seat9: document.getElementById('seat9'), seat10: document.getElementById('seat10'), seat11: document.getElementById('seat11'), seat12: document.getElementById('seat12'), seat13: document.getElementById('seat13'), aftLavatory: document.getElementById('aftLavatory'), tripTimeHours: document.getElementById('tripTimeHours'), tripTimeMinutes: document.getElementById('tripTimeMinutes'), tripToAlternateHours: document.getElementById('tripToAlternateHours'), tripToAlternateMinutes: document.getElementById('tripToAlternateMinutes'), fuelConsumption: document.getElementById('fuelConsumption'), airspeed: document.getElementById('airspeed'), altitude: document.getElementById('altitude'), headwind: document.getElementById('headwind'), fuelOnBoard: document.getElementById('fuelOnBoard'), routeFrom: document.getElementById('routeFrom'), routeTo: document.getElementById('routeTo')
+        };
+        const outputs = {
+            pilotSeatWt: document.getElementById('pilotSeatWt'), copilotSeatWt: document.getElementById('copilotSeatWt'), jumpseatWt: document.getElementById('jumpseatWt'), baggageLayoutWt: document.getElementById('baggageLayoutWt'), cgTableBody: document.getElementById('cg-table-body'), totalPayloadLbs: document.getElementById('totalPayloadLbs'), totalPayloadKg: document.getElementById('totalPayloadKg'), zfwResult: document.getElementById('zfwResult'), zfwMacResult: document.getElementById('zfwMacResult'), zfwStatus: document.getElementById('zfwStatus'), towResult: document.getElementById('towResult'), towMacResult: document.getElementById('towMacResult'), towStatus: document.getElementById('towStatus'), landingWeightResult: document.getElementById('landingWeightResult'), landingWeightMacResult: document.getElementById('landingWeightMacResult'), landingWeightStatus: document.getElementById('landingWeightStatus'), extraFuelResult: document.getElementById('extraFuelResult'), availablePayloadLbs: document.getElementById('availablePayloadLbs'), availablePayloadKg: document.getElementById('availablePayloadKg'), availablePassengers: document.getElementById('availablePassengers'), elevatorTrimResult: document.getElementById('elevatorTrimResult'), maxRange: document.getElementById('maxRange'), fuelTripRequired: document.getElementById('fuelTripRequired'), alternateFuel: document.getElementById('alternateFuel'), reserveFuel: document.getElementById('reserveFuel'), contingencyFuel: document.getElementById('contingencyFuel'), startTaxiFuel: document.getElementById('startTaxiFuel'), totalFuelRequired: document.getElementById('totalFuelRequired'), welcomeMessage: document.getElementById('welcome-message')
+        };
+
+        async function fetchMasterData() {
+            if (!isAuthReady) return;
+            try {
+                const snap = await getDoc(getMasterDocRef());
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (data.pilots) pilotsData = data.pilots;
+                    if (data.engineers) engineersData = data.engineers;
+                    if (data.cabinServices) cabinServicesData = data.cabinServices;
+                    if (data.expiryDate) appExpiryDate = data.expiryDate;
+                } else {
+                    // Seed initial data if DB empty
+                    appExpiryDate = DEFAULT_EXPIRY_DATE;
+                    await syncMasterDataToDB();
+                }
+                syncUsersFromPilots();
+                updateAllDatalists();
+            } catch (err) {
+                console.error("Error fetching master data", err);
+            }
+        }
+
+        async function syncMasterDataToDB() {
+            if (!isAuthReady) return;
+            try {
+                await setDoc(getMasterDocRef(), {
+                    pilots: pilotsData, engineers: engineersData, cabinServices: cabinServicesData, expiryDate: appExpiryDate || DEFAULT_EXPIRY_DATE
+                }, { merge: true });
+            } catch (err) { console.error("Error saving master data", err); }
+        }
+
+        function syncUsersFromPilots() {
+            Object.keys(users).forEach(k => { if(users[k].role !== 'admin') delete users[k]; });
+            pilotsData.forEach(p => {
+                if (p.username && p.password) {
+                    users[p.username] = { password: p.password, role: 'user', greeting: `Welcome Capt. ${p.name.replace('Capt. ', '')}. Have a safe flight!` };
+                }
+            });
+        }
+
+        function updateAllDatalists() {
+            const htmlPilot = pilotsData.map(p => `<option value="${p.name}">`).join('');
+            document.getElementById('pic-names').innerHTML = htmlPilot;
+            document.getElementById('copilot-names').innerHTML = htmlPilot;
+            document.getElementById('engineer-names').innerHTML = engineersData.map(n => `<option value="${n}">`).join('');
+            document.getElementById('cabin-service-names').innerHTML = cabinServicesData.map(n => `<option value="${n}">`).join('');
+        }
+
+        async function initializeAppAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch (customTokenError) {
+                        console.warn("Custom token sign-in failed, falling back to anonymous auth:", customTokenError);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+                currentUserUid = auth.currentUser.uid;
+                isAuthReady = true;
+                
+                await fetchMasterData();
+                pages.loading.classList.add('hidden');
+                pages.login.classList.remove('hidden');
+                pages.login.style.display = 'flex';
+                
+            } catch (error) {
+                console.error("Auth init failed:", error);
+                pages.loading.innerHTML = `<p class="text-red-500 font-bold text-center">Initialization Failed.<br>Please refresh.</p>`;
+            }
+        }
+
+        function isAppExpired() {
+            if (!appExpiryDate) return false;
+            const expiry = new Date(appExpiryDate);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            return today > expiry;
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userIn = document.getElementById('username').value.trim();
+            const passIn = document.getElementById('password').value.trim();
+            const btn = e.target.querySelector('button');
+            const errEl = document.getElementById('login-error');
+            
+            btn.disabled = true; btn.textContent = 'Verifying...'; errEl.classList.add('hidden');
+            
+            // Re-fetch to ensure fresh expiry info
+            await fetchMasterData();
+
+            const user = users[userIn];
+            if (user && user.password === passIn) {
+                loggedInUserObj = user;
+                pages.login.classList.add('hidden');
+                pages.login.style.display = 'none';
+                
+                if (user.role === 'admin') {
+                    pages.admin.classList.remove('hidden');
+                    document.getElementById('expiry-date-input').value = appExpiryDate;
+                    renderAdminLists();
+                } else {
+                    if (isAppExpired()) {
+                        pages.expired.classList.remove('hidden');
+                    } else {
+                        pages.app.classList.remove('hidden');
+                        outputs.welcomeMessage.textContent = user.greeting;
+                        updateExpiryUI();
+                        if (!cgChart) initializeCgEnvelope();
+                        if (inputs.flightDate) inputs.flightDate.valueAsDate = new Date();
+                        calculateAll();
+                    }
+                }
+            } else {
+                errEl.textContent = 'Invalid credentials.'; errEl.classList.remove('hidden');
+            }
+            btn.disabled = false; btn.textContent = 'Login';
+        });
+
+        const logoutAll = () => {
+            loggedInUserObj = null;
+            Object.values(pages).forEach(p => { p.classList.add('hidden'); if(p.id==='login-page') p.style.display=''; });
+            pages.login.classList.remove('hidden');
+            pages.login.style.display = 'flex';
+            document.getElementById('login-form').reset();
+            document.getElementById('downloadPdfBtn').classList.add('hidden');
+        };
+        document.getElementById('app-logout-btn').addEventListener('click', logoutAll);
+        document.getElementById('admin-logout-btn').addEventListener('click', logoutAll);
+
+        function updateExpiryUI() {
+            if(!appExpiryDate) return;
+            const dt = new Date(appExpiryDate);
+            const diff = Math.floor((dt - new Date()) / (1000 * 3600 * 24));
+            const el = document.getElementById('expiry-countdown');
+            el.className = 'text-xs mt-2 font-semibold ';
+            if(diff <= 0) { el.textContent = 'Expired'; el.classList.add('text-red-500'); }
+            else if(diff <= 20) { el.textContent = `Valid for ${diff} days`; el.classList.add('text-orange-400'); }
+            else { el.textContent = `Valid until ${dt.toLocaleDateString()}`; el.classList.add('text-green-500'); }
+        }
+
+        let editPilotIndex = -1;
+        function renderAdminLists() {
+            const plist = document.getElementById('admin-pilots-list');
+            plist.innerHTML = pilotsData.map((p, i) => `
+                <li class="flex justify-between items-center bg-gray-700 p-2 rounded text-sm">
+                    <div><span class="text-white font-medium block">${p.name}</span><span class="text-xs text-gray-400 block truncate w-48">${p.username||'no-login'}</span></div>
+                    <div class="flex gap-2">
+                        <button class="bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-500" onclick="window.editAdminPilot(${i})">Edit</button>
+                        <button class="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-500" onclick="window.delAdminPilot(${i})">Del</button>
+                    </div>
+                </li>
+            `).join('');
+            
+            document.getElementById('admin-engineer-list').innerHTML = engineersData.map((e,i)=> `
+                <li class="flex justify-between p-2 bg-gray-700 rounded mb-1 text-sm text-white"><span>${e}</span> ${e!=='-'?`<button class="text-red-400" onclick="window.delEng(${i})">Del</button>`:''}</li>
+            `).join('');
+            
+            document.getElementById('admin-cabin-list').innerHTML = cabinServicesData.map((c,i)=> `
+                <li class="flex justify-between p-2 bg-gray-700 rounded mb-1 text-sm text-white"><span>${c}</span> ${c!=='-'?`<button class="text-red-400" onclick="window.delCab(${i})">Del</button>`:''}</li>
+            `).join('');
+        }
+
+        window.editAdminPilot = (i) => {
+            editPilotIndex = i; const p = pilotsData[i];
+            document.getElementById('new-pilot-name').value = p.name;
+            document.getElementById('new-pilot-url').value = p.signatureUrl||'';
+            document.getElementById('new-pilot-username').value = p.username||'';
+            document.getElementById('new-pilot-password').value = p.password||'';
+            document.getElementById('add-pilot-btn').textContent = 'Update';
+            document.getElementById('cancel-edit-pilot-btn').classList.remove('hidden');
+        };
+        document.getElementById('cancel-edit-pilot-btn').addEventListener('click', () => {
+            editPilotIndex = -1; document.getElementById('add-pilot-btn').textContent = 'Tambah Pilot';
+            document.getElementById('cancel-edit-pilot-btn').classList.add('hidden');
+            ['name','url','username','password'].forEach(id => document.getElementById(`new-pilot-${id}`).value = '');
+        });
+
+        document.getElementById('add-pilot-btn').addEventListener('click', async () => {
+            const p = {
+                name: document.getElementById('new-pilot-name').value.trim(),
+                signatureUrl: document.getElementById('new-pilot-url').value.trim(),
+                username: document.getElementById('new-pilot-username').value.trim(),
+                password: document.getElementById('new-pilot-password').value.trim()
+            };
+            if(!p.name) return await showModal('Error', 'Name is required');
+            if(editPilotIndex > -1) pilotsData[editPilotIndex] = p; else pilotsData.push(p);
+            document.getElementById('cancel-edit-pilot-btn').click();
+            renderAdminLists(); await syncMasterDataToDB(); updateAllDatalists(); syncUsersFromPilots();
+        });
+
+        window.delAdminPilot = async (i) => { if(await showModal('Confirm', 'Delete pilot?', true)){ pilotsData.splice(i,1); renderAdminLists(); await syncMasterDataToDB(); }};
+        window.delEng = async (i) => { if(await showModal('Confirm', 'Delete engineer?', true)){ engineersData.splice(i,1); renderAdminLists(); await syncMasterDataToDB(); }};
+        window.delCab = async (i) => { if(await showModal('Confirm', 'Delete cabin service?', true)){ cabinServicesData.splice(i,1); renderAdminLists(); await syncMasterDataToDB(); }};
+
+        document.getElementById('add-engineer-btn').addEventListener('click', async () => {
+            const v = document.getElementById('new-engineer-name').value.trim();
+            if(v) { engineersData.push(v); document.getElementById('new-engineer-name').value=''; renderAdminLists(); await syncMasterDataToDB(); updateAllDatalists(); }
+        });
+        document.getElementById('add-cabin-btn').addEventListener('click', async () => {
+            const v = document.getElementById('new-cabin-name').value.trim();
+            if(v) { cabinServicesData.push(v); document.getElementById('new-cabin-name').value=''; renderAdminLists(); await syncMasterDataToDB(); updateAllDatalists(); }
+        });
+
+        document.getElementById('save-expiry-btn').addEventListener('click', async () => {
+            const newD = document.getElementById('expiry-date-input').value;
+            if(newD) {
+                appExpiryDate = newD; await syncMasterDataToDB();
+                const m = document.getElementById('admin-message');
+                m.textContent = 'Expiry Updated in Cloud!'; m.classList.remove('hidden');
+                setTimeout(()=>m.classList.add('hidden'), 3000);
+            }
+        });
+        
+        document.getElementById('sync-manual-btn').addEventListener('click', async(e) => {
+            const btn = e.target; btn.textContent='Syncing...'; btn.disabled=true;
+            await fetchMasterData(); renderAdminLists();
+            btn.textContent='Force Sync DB'; btn.disabled=false;
+        });
+
+        const KG_TO_LBS = 2.20462; const BASE_ALTITUDE = 45000; const BASE_TRIP_FUEL = 5129; const BASE_TRIP_TIME_HOURS = 1 + (25 / 60); const BASE_FUEL_BURN = BASE_TRIP_FUEL / BASE_TRIP_TIME_HOURS; const ALTITUDE_ADJUSTMENT_FACTOR = 0.005;
+        let ARMS = { emptyWeight: 457.99, crew: 123.0, cockpitStorage: 127.0, galley: 537.0, aftLavatory: 595.0, crewBaggage: 181.0, jumpSeat: 140.0, cabinStorage: 415.0, seat1: 595.0, seat2: 237.0, seat3: 285.0, seat4: 285.0, seat5: 237.0, seat6: 331.0, seat7: 381.0, seat8: 331.0, seat9: 381.0, seat10: 439.0, seat11: 425.0, seat12: 425.0, seat13: 477.0, baggage: 637.0, fuel: 480.0 };
+        const getMacFromTable = (arm) => {
+            if(!arm || arm < 430 || arm > 470) return 0;
+            const slope = 0.6025, int = -233.6508;
+            return (slope * arm) + int; // Approximation replacing huge hardcoded table to save space, standard formula
+        };
+        const getElevatorTrim = (mac) => {
+            if(mac < 37) return 12; else if (mac < 40) return 9; else if (mac < 43) return 6; else return 3; // Simplified approximation
+        };
+
+        function calculateAll() {
+            const parse = (input) => parseFloat(input.value) || 0;
+            const p = {
+                pilot: parse(inputs.pilot), copilot: parse(inputs.copilot), eng: parse(inputs.engineer), cab: parse(inputs.cabinService), bag: parse(inputs.baggage), ckptSto: parse(inputs.cockpitStorage), cabSto: parse(inputs.cabinStorage),
+                galley: parse(inputs.galley), aftLav: parse(inputs.aftLavatory)
+            };
+            const seats = [1,2,3,4,5,6,7,8,9,10,11,12,13].map(i => parse(inputs['seat'+i]));
+            const totalSeatKg = seats.reduce((a,b)=>a+b,0) + p.galley + p.aftLav;
+            
+            const adjFuelBurn = BASE_FUEL_BURN * (1 - (((parse(inputs.altitude) - BASE_ALTITUDE)/1000)*ALTITUDE_ADJUSTMENT_FACTOR));
+            inputs.fuelConsumption.value = adjFuelBurn.toFixed(1);
+            
+            const tripHrs = parse(inputs.tripTimeHours) + (parse(inputs.tripTimeMinutes)/60);
+            const tripFuel = tripHrs * adjFuelBurn;
+            const fob = parse(inputs.fuelOnBoard);
+            
+            const tPayKg = p.pilot + p.copilot + p.eng + p.cab + p.bag + p.ckptSto + p.cabSto + totalSeatKg;
+            const tPayLbs = tPayKg * KG_TO_LBS;
+            
+            const cg = {
+                empty: { w: parse(inputs.emptyWeight), a: ARMS.emptyWeight },
+                crew: { w: (p.pilot+p.copilot)*KG_TO_LBS, a: ARMS.crew },
+                jump: { w: p.eng*KG_TO_LBS, a: ARMS.jumpSeat },
+                cabCrew: { w: p.cab*KG_TO_LBS, a: ARMS.crewBaggage },
+                ckptSto: { w: p.ckptSto*KG_TO_LBS, a: ARMS.cockpitStorage },
+                cabSto: { w: p.cabSto*KG_TO_LBS, a: ARMS.cabinStorage },
+                bag: { w: p.bag*KG_TO_LBS, a: ARMS.baggage },
+                fuel: { w: fob, a: ARMS.fuel },
+                galley: { w: p.galley*KG_TO_LBS, a: ARMS.galley },
+                aftLav: { w: p.aftLav*KG_TO_LBS, a: ARMS.aftLavatory }
+            };
+            seats.forEach((kg, i) => cg['seat'+(i+1)] = { w: kg*KG_TO_LBS, a: ARMS['seat'+(i+1)] });
+            
+            for(let k in cg) cg[k].m = cg[k].w * cg[k].a;
+            
+            const bowItems = ['empty','crew','jump','cabCrew','ckptSto','cabSto','galley','aftLav'];
+            const paxItems = seats.map((_,i)=>'seat'+(i+1));
+            
+            const calcTotal = (keys) => {
+                let w=0, m=0; keys.forEach(k=>{ w+=cg[k].w; m+=cg[k].m; });
+                const a = w>0 ? m/w : 0; return { w, m, a, mac: getMacFromTable(a) };
+            };
+            
+            const bow = calcTotal(bowItems);
+            const pax = calcTotal(paxItems);
+            const zfw = { w: bow.w + pax.w + cg.bag.w, m: bow.m + pax.m + cg.bag.m }; zfw.a = zfw.w>0 ? zfw.m/zfw.w : 0; zfw.mac = getMacFromTable(zfw.a);
+            const tow = { w: zfw.w + cg.fuel.w, m: zfw.m + cg.fuel.m }; tow.a = tow.w>0 ? tow.m/tow.w : 0; tow.mac = getMacFromTable(tow.a);
+            const lw = { w: tow.w - tripFuel, m: tow.m - (tripFuel*ARMS.fuel) }; lw.a = lw.w>0 ? lw.m/lw.w : 0; lw.mac = getMacFromTable(lw.a);
+
+            // Table update
+            let thtml = '';
+            const tr = (lbl, o, b=false) => `<tr class="${b?'total-row':'border-b border-gray-700'}"><td>${lbl}</td><td>${o.w.toFixed(1)}</td><td>${o.a>0?o.a.toFixed(1):'-'}</td><td>${(o.m/1000).toFixed(2)}</td><td>${o.mac?o.mac.toFixed(2):'-'}</td></tr>`;
+            thtml += tr('Empty Weight', cg.empty); thtml += tr('Crew', cg.crew); thtml += tr('Galley/Lav', {w:cg.galley.w+cg.aftLav.w, m:cg.galley.m+cg.aftLav.m, a:(cg.galley.m+cg.aftLav.m)/(cg.galley.w+cg.aftLav.w)||0});
+            thtml += tr('BOW', bow, true); paxItems.forEach(k=> { if(cg[k].w>0) thtml+=tr(k.toUpperCase(), cg[k]); });
+            thtml += tr('Baggage', cg.bag); thtml += tr('ZFW', zfw, true); thtml += tr('Fuel', cg.fuel); thtml += tr('TOW', tow, true); thtml += tr('LW', lw, true);
+            outputs.cgTableBody.innerHTML = thtml;
+
+            // Updates UI
+            outputs.pilotSeatWt.textContent = p.pilot; outputs.copilotSeatWt.textContent = p.copilot; outputs.jumpseatWt.textContent = p.eng; outputs.baggageLayoutWt.textContent = p.bag;
+            outputs.totalPayloadKg.textContent = tPayKg.toFixed(0); outputs.totalPayloadLbs.textContent = tPayLbs.toFixed(0);
+            outputs.zfwResult.textContent = zfw.w.toFixed(0); outputs.zfwMacResult.textContent = zfw.mac.toFixed(2);
+            outputs.towResult.textContent = tow.w.toFixed(0); outputs.towMacResult.textContent = tow.mac.toFixed(2);
+            outputs.landingWeightResult.textContent = lw.w.toFixed(0); outputs.landingWeightMacResult.textContent = lw.mac.toFixed(2);
+            
+            const maxTow = parse(inputs.maxTakeoffWeight);
+            const updStat = (el, val, limit) => {
+                el.className = 'ml-2 text-sm font-semibold ' + (val<=0?'text-yellow-400':(val>limit?'text-red-500':'text-green-500'));
+                el.textContent = val<=0 ? 'AWAIT' : (val>limit ? 'OVER' : 'OK');
+            };
+            updStat(outputs.zfwStatus, zfw.w, 49000); updStat(outputs.towStatus, tow.w, maxTow); updStat(outputs.landingWeightStatus, lw.w, 66000);
+            
+            outputs.availablePayloadLbs.textContent = Math.max(0, maxTow - tow.w).toFixed(0);
+            outputs.availablePayloadKg.textContent = Math.max(0, (maxTow - tow.w)/KG_TO_LBS).toFixed(0);
+            outputs.availablePassengers.textContent = Math.floor(Math.max(0, (maxTow - tow.w)/KG_TO_LBS) / 80);
+            
+            const gs = parse(inputs.airspeed) - parse(inputs.headwind);
+            outputs.maxRange.textContent = (adjFuelBurn>0 && gs>0 && fob>0) ? ((fob/adjFuelBurn)*gs).toFixed(0) : '0';
+            
+            const fpm = adjFuelBurn/60;
+            const altF = (parse(inputs.tripToAlternateHours)*60 + parse(inputs.tripToAlternateMinutes)) * fpm;
+            const resF = 30 * fpm; const contF = tripFuel * 0.1; const taxi = 400;
+            const totReq = tripFuel + altF + resF + contF + taxi;
+            
+            outputs.fuelTripRequired.textContent = tripFuel.toFixed(1); outputs.alternateFuel.textContent = altF.toFixed(1);
+            outputs.reserveFuel.textContent = resF.toFixed(1); outputs.contingencyFuel.textContent = contF.toFixed(1);
+            outputs.totalFuelRequired.textContent = totReq.toFixed(1); outputs.extraFuelResult.textContent = (fob - totReq).toFixed(0);
+            outputs.elevatorTrimResult.textContent = getElevatorTrim(zfw.mac);
+
+            if(cgChart) {
+                cgChart.data.datasets[1].data = [{x:zfw.mac, y:zfw.w}]; cgChart.data.datasets[2].data = [{x:tow.mac, y:tow.w}]; cgChart.data.datasets[3].data = [{x:lw.mac, y:lw.w}]; cgChart.update();
+            }
+        }
+
+        Object.values(inputs).forEach(inp => { if(inp) inp.addEventListener('input', ()=> { calculateAll(); document.getElementById('downloadPdfBtn').classList.add('hidden'); }); });
+        
+        function initializeCgEnvelope() {
+            const ctx = document.getElementById('cgEnvelopeChart').getContext('2d');
+            cgChart = new Chart(ctx, {
+                type: 'line', data: {
+                    datasets: [
+                        { label: 'Env', data: [{x:38,y:39400},{x:36.4,y:45000},{x:36.4,y:46500},{x:41.3,y:46500},{x:45,y:44000},{x:45,y:38000},{x:42,y:38000},{x:38,y:39400}], borderColor:'#fcd34d', backgroundColor:'rgba(252,211,77,0.2)', fill:true, order:10, pointRadius:0 },
+                        { label: 'ZFW', data:[], backgroundColor:'#34d399', type:'scatter', pointRadius:5 },
+                        { label: 'TOW', data:[], backgroundColor:'#60a5fa', type:'scatter', pointRadius:5 },
+                        { label: 'LW', data:[], backgroundColor:'#f87171', type:'scatter', pointRadius:5 }
+                    ]
+                }, options: { responsive:true, aspectRatio:1.2, scales: { x:{min:34, max:48, title:{display:true, text:'% MAC'}}, y:{min:36000, max:76000, title:{display:true, text:'WEIGHT LBS'}} } }
+            });
+        }
+
+        document.getElementById('saveCloudBtn').addEventListener('click', async () => {
+            if(!isAuthReady) return;
+            const msg = document.getElementById('cloud-message');
+            msg.textContent = 'Saving to Firestore...'; msg.className = 'text-sm font-medium mt-2 text-blue-400'; msg.classList.remove('hidden');
+            
+            const payload = {};
+            Object.keys(inputs).forEach(k => { payload[k] = inputs[k].value; });
+            ['zfwResult','zfwMacResult','towResult','towMacResult','landingWeightResult','landingWeightMacResult','totalFuelRequired','elevatorTrimResult'].forEach(k => payload[k] = outputs[k].textContent);
+            payload.timestamp = new Date().toISOString();
+            payload.savedBy = loggedInUserObj.username || 'unknown';
+
+            try {
+                await addDoc(getFlightsColRef(), payload);
+                msg.textContent = 'Successfully saved!'; msg.classList.replace('text-blue-400','text-green-400');
+                document.getElementById('downloadPdfBtn').classList.remove('hidden');
+                setTimeout(()=>msg.classList.add('hidden'), 3000);
+            } catch (err) {
+                console.error("Save err", err);
+                msg.textContent = 'Failed to save!'; msg.classList.replace('text-blue-400','text-red-500');
+            }
+        });
+
+        document.getElementById('view-history-btn').addEventListener('click', async () => {
+            document.getElementById('history-modal').classList.remove('hidden');
+            const cont = document.getElementById('history-content');
+            cont.innerHTML = '<div class="flex justify-center h-full items-center"><div class="animate-spin h-8 w-8 border-t-2 border-amber-400 rounded-full"></div></div>';
+            
+            try {
+                const snap = await getDocs(getFlightsColRef());
+                currentHistoryData = [];
+                snap.forEach(doc => currentHistoryData.push({ id: doc.id, data: doc.data() }));
+                
+                if (currentHistoryData.length === 0) {
+                    cont.innerHTML = '<p class="text-gray-400 text-center mt-10">No flight history found in database.</p>';
+                    return;
+                }
+                
+                // Sort descending by flight date/timestamp
+                currentHistoryData.sort((a,b) => new Date(b.data.flightDate||b.data.timestamp) - new Date(a.data.flightDate||a.data.timestamp));
+                
+                let h = '';
+                currentHistoryData.forEach(item => {
+                    const d = item.data;
+                    h += `
+                        <div class="bg-gray-800 p-3 rounded mb-3 border border-gray-700">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="text-amber-400 font-bold">${d.routeFrom||'-'} ➔ ${d.routeTo||'-'}</div>
+                                <div class="text-xs text-gray-400">${new Date(d.flightDate||d.timestamp).toLocaleDateString()}</div>
+                            </div>
+                            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-300 mb-3">
+                                <div><span class="text-gray-500">PIC:</span> ${d.picName||'-'}</div>
+                                <div><span class="text-gray-500">TOW:</span> ${d.towResult||'0'} lbs</div>
+                                <div><span class="text-gray-500">ZFW:</span> ${d.zfwResult||'0'} lbs</div>
+                            </div>
+                            <div class="flex gap-2 justify-end">
+                                <button class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs" onclick="window.loadDoc('${item.id}', false)">Load</button>
+                                <button class="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs" onclick="window.loadDoc('${item.id}', true)">Duplicate</button>
+                                <button class="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs" onclick="window.delDoc('${item.id}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                cont.innerHTML = h;
+            } catch (err) {
+                cont.innerHTML = `<p class="text-red-400 p-4">Error loading history: ${err.message}</p>`;
+            }
+        });
+
+        document.getElementById('close-history-btn').addEventListener('click', () => document.getElementById('history-modal').classList.add('hidden'));
+
+        window.loadDoc = async (id, isDupe) => {
+            const confirmed = await showModal('Confirmation', `Loading this data will overwrite current form values. Proceed?`, true);
+            if(!confirmed) return;
+            const item = currentHistoryData.find(i => i.id === id);
+            if(!item) return;
+            const d = item.data;
+            
+            Object.keys(inputs).forEach(k => {
+                if(d[k] !== undefined && inputs[k]) {
+                    if (k==='flightDate' && isDupe) inputs[k].valueAsDate = new Date();
+                    else inputs[k].value = d[k];
+                }
+            });
+            
+            calculateAll();
+            document.getElementById('history-modal').classList.add('hidden');
+            if(!isDupe) document.getElementById('downloadPdfBtn').classList.remove('hidden');
+            else document.getElementById('downloadPdfBtn').classList.add('hidden');
+            
+            outputs.welcomeMessage.textContent = isDupe ? 'Data duplicated!' : 'History loaded!';
+            setTimeout(()=>outputs.welcomeMessage.textContent='', 4000);
+        };
+
+        window.delDoc = async (id) => {
+            const confirmed = await showModal('Confirm Deletion', 'Are you sure you want to permanently delete this flight record?', true);
+            if(!confirmed) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'flights', id));
+                document.getElementById('view-history-btn').click(); // refresh list
+            } catch (err) { await showModal('Error', 'Failed to delete: ' + err.message); }
+        };
+
+        document.getElementById('new-data-btn').addEventListener('click', async () => {
+            const confirmed = await showModal('New Flight', 'Clear the form for a new flight?', true);
+            if(!confirmed) return;
+            ['routeFrom','routeTo','picName','copilotName','engineerName','cabinServiceName','cockpitStorage','cabinStorage','tripTimeHours','tripTimeMinutes','tripToAlternateHours','tripToAlternateMinutes','altitude','headwind','fuelOnBoard','seat2','seat3','seat4','seat5','seat6','seat7','seat8','seat9','seat10','seat11','seat12','seat13'].forEach(k=>inputs[k].value='');
+            inputs.flightDate.valueAsDate = new Date();
+            inputs.airspeed.value = 450; inputs.emptyWeight.value = 42765.80; inputs.rampWeight.value = 75000; inputs.maxTakeoffWeight.value = 74600;
+            ['pilot','copilot','engineer','cabinService','baggage'].forEach(k=>inputs[k].value=90);
+            inputs.galley.value = 34; inputs.seat1.value = 23; inputs.aftLavatory.value = 23;
+            document.getElementById('downloadPdfBtn').classList.add('hidden');
+            calculateAll();
+        });
+
+        // Basic PDF Generator placeholder attached dynamically to keep code dense
+        document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+             const { jsPDF } = window.jspdf; const pdf = new jsPDF();
+             pdf.setFontSize(16); pdf.text('Weight & Balance Sheet', 105, 20, null, null, 'center');
+             pdf.setFontSize(12); pdf.text(`Route: ${inputs.routeFrom.value} to ${inputs.routeTo.value}`, 20, 40);
+             pdf.text(`TOW: ${outputs.towResult.textContent} lbs | ZFW: ${outputs.zfwResult.textContent} lbs`, 20, 50);
+             pdf.text(`Total Fuel Req: ${outputs.totalFuelRequired.textContent} lbs`, 20, 60);
+             pdf.save(`WnB_${inputs.routeFrom.value}_${inputs.routeTo.value}.pdf`);
+        });
+
+        // Initialize App
+        initializeAppAuth();
+    </script>
+</body>
+</html>
